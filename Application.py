@@ -21,7 +21,7 @@ st.markdown("---")
 def load_model():
     try:
         # Charger votre modèle YOLO entraîné
-        model = YOLO('best.pt')
+        model = YOLO('C:\Users\Lenovo\Desktop\Projet a rendre\runs_training\yolov8_training2\weights\best.pt')
         st.sidebar.success("✅ Modèle chargé avec succès!")
         
         # Afficher les informations du modèle
