@@ -17,29 +17,6 @@ st.set_page_config(
 st.title("🗑️ Détection de Poubelles - Pleine ou Vide")
 st.markdown("---")
 
-# Fonction pour télécharger le modèle
-def upload_model():
-    st.sidebar.subheader("📁 Télécharger un modèle")
-    
-    uploaded_model = st.sidebar.file_uploader(
-        "Choisissez votre fichier de modèle (.pt)",
-        type=['pt'],
-        help="Uploader votre modèle YOLO entraîné"
-    )
-    
-    if uploaded_model is not None:
-        try:
-            # Sauvegarder le modèle uploadé
-            model_path = "uploaded_model.pt"
-            with open(model_path, "wb") as f:
-                f.write(uploaded_model.getbuffer())
-            
-            st.sidebar.success(f"✅ Modèle téléchargé: {uploaded_model.name}")
-            return model_path
-        except Exception as e:
-            st.sidebar.error(f"❌ Erreur lors du téléchargement: {e}")
-            return None
-    return None
 
 # Charger le modèle YOLO
 @st.cache_resource
@@ -148,7 +125,9 @@ st.sidebar.markdown("---")
 st.sidebar.subheader("📁 Gestion des modèles")
 
 # Bouton pour uploader un modèle
-upload_model()
+with open("runs_training/yolov8_training2/weights/best.pt", "rb") as f:
+        st.sidebar.download_button("⬇️ Télécharger le modèle", f, "best.pt")
+
 
 # Bouton pour supprimer le modèle uploadé
 if os.path.exists("uploaded_model.pt"):
