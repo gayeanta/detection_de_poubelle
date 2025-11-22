@@ -4,6 +4,7 @@ import numpy as np
 from PIL import Image
 from ultralytics import YOLO
 import os
+import shutil
 
 # Configuration de la page
 st.set_page_config(
@@ -16,12 +17,45 @@ st.set_page_config(
 st.title("🗑️ Détection de Poubelles - Pleine ou Vide")
 st.markdown("---")
 
+# Fonction pour télécharger le modèle
+def upload_model():
+    st.sidebar.subheader("📁 Télécharger un modèle")
+    
+    uploaded_model = st.sidebar.file_uploader(
+        "Choisissez votre fichier de modèle (.pt)",
+        type=['pt'],
+        help="Uploader votre modèle YOLO entraîné"
+    )
+    
+    if uploaded_model is not None:
+        try:
+            # Sauvegarder le modèle uploadé
+            model_path = "uploaded_model.pt"
+            with open(model_path, "wb") as f:
+                f.write(uploaded_model.getbuffer())
+            
+            st.sidebar.success(f"✅ Modèle téléchargé: {uploaded_model.name}")
+            return model_path
+        except Exception as e:
+            st.sidebar.error(f"❌ Erreur lors du téléchargement: {e}")
+            return None
+    return None
+
 # Charger le modèle YOLO
 @st.cache_resource
 def load_model():
     try:
-        # Charger votre modèle YOLO entraîné
-        model = YOLO('C:\Users\Lenovo\Desktop\Projet a rendre\runs_training\yolov8_training2\weights\best.pt')
+        # Vérifier d'abord si un modèle a été uploadé
+        if os.path.exists("uploaded_model.pt"):
+            model_path = "uploaded_model.pt"
+            st.sidebar.info("🔄 Chargement du modèle uploadé...")
+        else:
+            # Sinon utiliser le modèle par défaut
+            model_path = 'runs_training/yolov8_training2/weights/best.pt'
+            st.sidebar.info("🔄 Chargement du modèle par défaut...")
+        
+        # Charger le modèle
+        model = YOLO(model_path)
         st.sidebar.success("✅ Modèle chargé avec succès!")
         
         # Afficher les informations du modèle
@@ -92,10 +126,39 @@ def predict_image(model, image, confidence_threshold):
 
 # Sidebar pour les paramètres
 st.sidebar.title("⚙️ Paramètres")
-confidence_threshold = st.sidebar.slider("Seuil de confiance", 0.01, 1.0, 0.25, 0.01)
+
+# Affichage du statut du modèle
+st.sidebar.subheader("📊 Statut du modèle")
+if os.path.exists("uploaded_model.pt"):
+    st.sidebar.success("✅ Modèle personnalisé chargé")
+elif os.path.exists('runs_training/yolov8_training2/weights/best.pt'):
+    st.sidebar.info("ℹ️ Modèle par défaut chargé")
+else:
+    st.sidebar.error("❌ Aucun modèle trouvé")
+
+# Paramètres de détection
+st.sidebar.markdown("---")
+confidence_threshold = st.sidebar.slider("Seuil de confiance", 0.6, 0.8, 0.5, 0.01)
 
 # Charger le modèle
 model = load_model()
+
+# Section upload du modèle À LA FIN
+st.sidebar.markdown("---")
+st.sidebar.subheader("📁 Gestion des modèles")
+
+# Bouton pour uploader un modèle
+upload_model()
+
+# Bouton pour supprimer le modèle uploadé
+if os.path.exists("uploaded_model.pt"):
+    if st.sidebar.button("🗑️ Supprimer le modèle uploadé", type="secondary", use_container_width=True):
+        try:
+            os.remove("uploaded_model.pt")
+            st.sidebar.success("✅ Modèle uploadé supprimé")
+            st.rerun()
+        except Exception as e:
+            st.sidebar.error(f"❌ Erreur lors de la suppression: {e}")
 
 # Section principale
 col1, col2 = st.columns(2)
@@ -154,20 +217,20 @@ with col2:
                             st.write(f"Confiance: **{det['confidence']:.3f}**")
                             st.write(f"Classe: {det['class_name']} (ID: {det['class']})")
                     
-                    # Conclusion globale
-                    st.subheader("🎯 Conclusion")
+                    # CONCLUSION - AFFICHER SI LA POUBELLE EST PLEINE OU VIDE
+                    st.subheader("🎯 CONCLUSION FINALE")
                     
                     pleine_count = len([d for d in detections if d['label_display'] == "PLEINE"])
                     vide_count = len([d for d in detections if d['label_display'] == "VIDE"])
                     
                     if pleine_count > 0 and vide_count == 0:
-                        st.success("**✅ TOUTES les poubelles détectées sont PLEINES**")
+                        st.success("## ✅ LA POUBELLE EST PLEINE")
                     elif vide_count > 0 and pleine_count == 0:
-                        st.info("**❌ TOUTES les poubelles détectées sont VIDES**")
+                        st.info("## ❌ LA POUBELLE EST VIDE")
                     elif pleine_count > 0 and vide_count > 0:
-                        st.warning(f"**🤔 RÉSULTAT MIXTE** - {pleine_count} pleine(s) et {vide_count} vide(s)")
+                        st.warning(f"## 🤔 RÉSULTAT MIXTE - {pleine_count} poubelle(s) pleine(s) et {vide_count} poubelle(s) vide(s)")
                     else:
-                        st.warning("**🔍 Autres objets détectés**")
+                        st.warning("## 🔍 AUTRES OBJETS DÉTECTÉS")
                         
                 else:
                     st.error("❌ Aucune poubelle détectée dans l'image")
@@ -179,32 +242,36 @@ with col2:
                     """)
 
     elif model is None:
-        st.error("❌ Modèle non chargé")
+        st.error("❌ Modèle non chargé - Veuillez uploader un modèle ou vérifier le chemin par défaut")
 
 # Section d'information
 st.markdown("---")
 st.subheader("ℹ️ Comment ça marche ?")
 
 st.markdown("""
-**Légende des couleurs :**
-- 🟢 **VERT** : Poubelle **PLEINE**
-- 🔴 **ROUGE** : Poubelle **VIDE**
-- 🟡 **JAUNE** : Autre type de détection
+**📁 Upload de modèle :**
+1. Allez dans la section "Gestion des modèles" en bas de la sidebar
+2. Cliquez sur "Choisissez votre fichier de modèle"
+3. Sélectionnez votre fichier .pt entraîné
+4. Le modèle sera automatiquement chargé
 
-**Fonctionnement :**
+**🎯 Détection d'images :**
 1. 📸 **Uploader** une image de poubelle
 2. ⚙️ **Ajuster** le seuil de confiance si nécessaire
 3. 🔍 **Cliquer** sur "Analyser l'image"
 4. 📊 **Vérifier** les résultats et la conclusion
 
-L'application affiche directement ce que votre modèle YOLO a détecté !
+**Légende des couleurs :**
+- 🟢 **VERT** : Poubelle **PLEINE**
+- 🔴 **ROUGE** : Poubelle **VIDE**
+- 🟡 **JAUNE** : Autre type de détection
 """)
 
 # Footer
 st.markdown("---")
 st.markdown(
     "<div style='text-align: center; color: gray;'>"
-    "Application de détection de poubelles - Votre modèle YOLO personnalisé"
+    "Application de détection de poubelles - Support modèles personnalisés"
     "</div>",
     unsafe_allow_html=True
 )
